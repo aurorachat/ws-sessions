@@ -3,20 +3,44 @@ package sessions
 import (
 	"context"
 	"github.com/gorilla/websocket"
+	"slices"
 )
 
-type Session struct {
-	id               string
-	conn             *websocket.Conn
-	listeningTo      map[string]*Channel
-	listeningChannel chan interface{}
-	ctx              context.Context
-	cancelFunc       context.CancelFunc
+type ListeningConnectionData struct {
+	connId string
+	conn   *websocket.Conn
 }
 
-func NewSession(id string, conn *websocket.Conn) *Session {
+type Session struct {
+	id                 string
+	connections        map[string]*ListeningConnectionData
+	listeningTo        map[string]*Channel
+	listeningChannel   chan interface{}
+	connectionsChannel chan interface{}
+	ctx                context.Context
+	cancelFunc         context.CancelFunc
+}
+
+func NewSession(id string) *Session {
 	ctx, cancelCtx := context.WithCancel(context.TODO())
-	return &Session{id: id, conn: conn, ctx: ctx, cancelFunc: cancelCtx}
+	inst := Session{id: id, ctx: ctx, cancelFunc: cancelCtx}
+	go inst.startListeningToChannels()
+	return &inst
+}
+
+func (session *Session) RegisterConnection(connectionId string, conn *websocket.Conn) {
+	data := ListeningConnectionData{connectionId, conn}
+	session.connections[connectionId] = &data
+	go session.startListeningToWebsocket(&data)
+}
+
+func (session *Session) CloseSpecificConnections(specificConnections ...string) {
+	for _, connData := range session.connections {
+		if slices.Contains(specificConnections, connData.connId) {
+			_ = connData.conn.Close()
+			delete(session.connections, connData.connId)
+		}
+	}
 }
 
 func (session *Session) Id() string {
@@ -38,33 +62,47 @@ func (session *Session) Unsubscribe(channel *Channel) {
 }
 
 func (session *Session) Close() {
-	_ = session.conn.Close()
+	for _, data := range session.connections {
+		_ = data.conn.Close()
+	}
 	session.cancelFunc()
 }
 
-func (session *Session) Receive() (interface{}, error) {
-	var msg interface{}
-	err := session.conn.ReadJSON(&msg)
-	if err != nil {
-		return nil, err
+func (session *Session) Receive() interface{} {
+	data := <-session.connectionsChannel
+	return data
+}
+
+func (session *Session) Send(msg interface{}, specificConnections ...string) {
+	for _, connData := range session.connections {
+		if len(specificConnections) != 0 {
+			if !slices.Contains(specificConnections, connData.connId) {
+				continue
+			}
+		}
+
+		_ = connData.conn.WriteJSON(msg)
 	}
-	return msg, nil
 }
 
-func (session *Session) Send(msg interface{}) error {
-	return session.conn.WriteJSON(msg)
-}
-
-func (session *Session) StartListening() {
+func (session *Session) startListeningToChannels() {
 	for {
 		select {
 		case <-session.ctx.Done():
 			return
 		case data := <-session.listeningChannel:
-			err := session.Send(data)
-			if err != nil {
-				session.Close()
-			}
+			session.Send(data)
 		}
+	}
+}
+
+func (session *Session) startListeningToWebsocket(data *ListeningConnectionData) {
+	for {
+		var msg interface{}
+		err := data.conn.ReadJSON(&msg)
+		if err != nil {
+			delete(session.connections, data.connId)
+		}
+		session.connectionsChannel <- msg
 	}
 }
