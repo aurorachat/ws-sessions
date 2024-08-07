@@ -10,17 +10,21 @@ type Session struct {
 	conn             *websocket.Conn
 	listeningTo      map[string]*Channel
 	listeningChannel chan interface{}
-	runningContext   context.Context
+	ctx              context.Context
 	cancelFunc       context.CancelFunc
 }
 
 func NewSession(id string, conn *websocket.Conn) *Session {
 	ctx, cancelCtx := context.WithCancel(context.TODO())
-	return &Session{id: id, conn: conn, runningContext: ctx, cancelFunc: cancelCtx}
+	return &Session{id: id, conn: conn, ctx: ctx, cancelFunc: cancelCtx}
 }
 
 func (session *Session) Id() string {
 	return session.id
+}
+
+func (session *Session) Context() context.Context {
+	return session.ctx
 }
 
 func (session *Session) Subscribe(channel *Channel) {
@@ -38,13 +42,26 @@ func (session *Session) Close() {
 	session.cancelFunc()
 }
 
+func (session *Session) Receive() (interface{}, error) {
+	var msg interface{}
+	err := session.conn.ReadJSON(&msg)
+	if err != nil {
+		return nil, err
+	}
+	return msg, nil
+}
+
+func (session *Session) Send(msg interface{}) error {
+	return session.conn.WriteJSON(msg)
+}
+
 func (session *Session) StartListening() {
 	for {
 		select {
-		case <-session.runningContext.Done():
+		case <-session.ctx.Done():
 			return
 		case data := <-session.listeningChannel:
-			err := session.conn.WriteJSON(data)
+			err := session.Send(data)
 			if err != nil {
 				session.Close()
 			}
