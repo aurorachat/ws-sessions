@@ -23,7 +23,8 @@ type Session struct {
 
 type sessionReceivedData struct {
 	sessionId    string
-	receivedData interface{}
+	messageType  int
+	messageBytes []byte
 }
 
 func NewSession(id string) *Session {
@@ -103,13 +104,12 @@ func (session *Session) startListeningToChannels() {
 
 func (session *Session) startListeningToWebsocket(data *ListeningConnectionData) {
 	for {
-		var msg interface{}
-		err := data.conn.ReadJSON(&msg)
+		messageType, messageBytes, err := data.conn.ReadMessage()
 		if err != nil {
 			delete(session.connections, data.connId)
 		}
 		session.connectionsChannel <- sessionReceivedData{
-			data.connId, msg,
+			data.connId, messageType, messageBytes,
 		}
 	}
 }
