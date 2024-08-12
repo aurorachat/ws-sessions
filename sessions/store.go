@@ -5,8 +5,8 @@ type Store struct {
 	sessions map[string]*Session
 }
 
-func NewStore() *Store {
-	inst := &Store{}
+func NewStore() Store {
+	inst := Store{}
 	inst.channels = make(map[string]*Channel)
 	inst.sessions = make(map[string]*Session)
 	return inst

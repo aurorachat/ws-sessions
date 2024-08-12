@@ -28,7 +28,7 @@ type sessionReceivedData struct {
 
 func NewSession(id string) *Session {
 	ctx, cancelCtx := context.WithCancel(context.TODO())
-	inst := Session{id: id, ctx: ctx, cancelFunc: cancelCtx}
+	inst := Session{id: id, ctx: ctx, cancelFunc: cancelCtx, connections: make(map[string]*ListeningConnectionData), listeningTo: make(map[string]*Channel)}
 	go inst.startListeningToChannels()
 	return &inst
 }
