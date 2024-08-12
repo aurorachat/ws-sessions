@@ -16,9 +16,14 @@ type Session struct {
 	connections        map[string]*ListeningConnectionData
 	listeningTo        map[string]*Channel
 	listeningChannel   chan interface{}
-	connectionsChannel chan interface{}
+	connectionsChannel chan sessionReceivedData
 	ctx                context.Context
 	cancelFunc         context.CancelFunc
+}
+
+type sessionReceivedData struct {
+	sessionId    string
+	receivedData interface{}
 }
 
 func NewSession(id string) *Session {
@@ -68,9 +73,9 @@ func (session *Session) Close() {
 	session.cancelFunc()
 }
 
-func (session *Session) Receive() interface{} {
+func (session *Session) Receive() (string, interface{}) {
 	data := <-session.connectionsChannel
-	return data
+	return data.sessionId, data.receivedData
 }
 
 func (session *Session) Send(msg interface{}, specificConnections ...string) {
@@ -103,6 +108,8 @@ func (session *Session) startListeningToWebsocket(data *ListeningConnectionData)
 		if err != nil {
 			delete(session.connections, data.connId)
 		}
-		session.connectionsChannel <- msg
+		session.connectionsChannel <- sessionReceivedData{
+			data.connId, msg,
+		}
 	}
 }
