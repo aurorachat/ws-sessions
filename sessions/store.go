@@ -6,7 +6,10 @@ type Store struct {
 }
 
 func NewStore() Store {
-	return Store{}
+	inst := Store{}
+	inst.channels = make(map[string]*Channel)
+	inst.sessions = make(map[string]*Session)
+	return inst
 }
 
 func (store *Store) GetSession(id string) *Session {
