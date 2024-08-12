@@ -11,7 +11,9 @@ type Channel struct {
 }
 
 func NewChannel(id string) *Channel {
-	return &Channel{id: id}
+	inst := &Channel{id: id}
+	inst.subscribed = make(map[string]subscribedSessionData)
+	return inst
 }
 
 func (channel *Channel) Id() string {
