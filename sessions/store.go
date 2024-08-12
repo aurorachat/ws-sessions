@@ -10,11 +10,19 @@ func NewStore() Store {
 }
 
 func (store *Store) GetSession(id string) *Session {
-	return store.sessions[id]
+	session, ok := store.sessions[id]
+	if ok {
+		return session
+	}
+	return nil
 }
 
 func (store *Store) GetChannel(id string) *Channel {
-	return store.channels[id]
+	channel, ok := store.channels[id]
+	if ok {
+		return channel
+	}
+	return nil
 }
 
 func (store *Store) SetSession(id string, session *Session) {
