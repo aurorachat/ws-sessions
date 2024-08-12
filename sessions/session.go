@@ -74,9 +74,9 @@ func (session *Session) Close() {
 	session.cancelFunc()
 }
 
-func (session *Session) Receive() (string, interface{}) {
+func (session *Session) Receive() (string, int, []byte) {
 	data := <-session.connectionsChannel
-	return data.sessionId, data.receivedData
+	return data.sessionId, data.messageType, data.messageBytes
 }
 
 func (session *Session) Send(msg interface{}, specificConnections ...string) {
