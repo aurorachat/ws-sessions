@@ -32,6 +32,10 @@ func (store *Store) SetSession(id string, session *Session) {
 	store.sessions[id] = session
 }
 
+func (store *Store) SetChannel(id string, channel *Channel) {
+	store.channels[id] = channel
+}
+
 func (store *Store) DeleteSession(id string) {
 	session := store.GetSession(id)
 
